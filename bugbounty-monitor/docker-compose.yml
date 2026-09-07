@@ -1,0 +1,82 @@
+name: bugbounty-monitor
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bbm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bbm}
+      POSTGRES_DB: ${POSTGRES_DB:-bbm}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-bbm} -d ${POSTGRES_DB:-bbm}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # One-shot: applies migrations and loads the seed domain list, then exits.
+  migrate:
+    build:
+      context: .
+      target: worker
+    restart: 'no'
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-bbm}:${POSTGRES_PASSWORD:-bbm}@postgres:5432/${POSTGRES_DB:-bbm}
+    command: ['npx', 'tsx', 'src/db/seed.ts']
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  web:
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-bbm}:${POSTGRES_PASSWORD:-bbm}@postgres:5432/${POSTGRES_DB:-bbm}
+      REDIS_URL: redis://redis:6379
+      APP_URL: ${APP_URL:-http://localhost:3000}
+    ports:
+      - '${WEB_PORT:-3000}:3000'
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
+  worker:
+    build:
+      context: .
+      target: worker
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-bbm}:${POSTGRES_PASSWORD:-bbm}@postgres:5432/${POSTGRES_DB:-bbm}
+      REDIS_URL: redis://redis:6379
+      APP_URL: ${APP_URL:-http://localhost:3000}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
+volumes:
+  postgres-data:
+  redis-data:
