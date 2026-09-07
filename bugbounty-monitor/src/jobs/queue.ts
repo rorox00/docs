@@ -72,21 +72,49 @@ export async function enqueue<T extends JobName>(
 }
 
 /** True when Redis is reachable — the UI degrades gracefully when it is not. */
-export async function isQueueAvailable(): Promise<boolean> {
+/**
+ * Bound a Redis round-trip so a health check cannot hang.
+ *
+ * ioredis keeps retrying a dead server forever, which is what we want for the
+ * worker but not for a request handler: without this, `/api/health` and the
+ * admin page block indefinitely whenever Redis is down.
+ */
+async function withTimeout<T>(operation: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
   try {
-    const pong = await getRedis().ping();
-    return pong === 'PONG';
+    return await Promise.race([
+      operation,
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(fallback), ms);
+      }),
+    ]);
   } catch {
-    return false;
+    return fallback;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
-export async function getQueueCounts(): Promise<Record<string, number>> {
-  try {
-    return await getQueue().getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed', 'paused');
-  } catch {
-    return {};
-  }
+/** True when Redis answers promptly. Never blocks a request. */
+export async function isQueueAvailable(timeoutMs = 1_500): Promise<boolean> {
+  return withTimeout(
+    getRedis()
+      .ping()
+      .then((pong) => pong === 'PONG')
+      .catch(() => false),
+    timeoutMs,
+    false,
+  );
+}
+
+export async function getQueueCounts(timeoutMs = 1_500): Promise<Record<string, number>> {
+  return withTimeout(
+    getQueue()
+      .getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed', 'paused')
+      .catch(() => ({}) as Record<string, number>),
+    timeoutMs,
+    {},
+  );
 }
 
 export async function closeQueue(): Promise<void> {

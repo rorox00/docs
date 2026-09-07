@@ -61,7 +61,7 @@ admin console.
 
 ## Quick start
 
-### Docker Compose (recommended)
+### Docker Compose (easiest)
 
 ```bash
 cp .env.example .env
@@ -75,20 +75,61 @@ becomes the administrator.**
 Compose starts PostgreSQL, Redis, a one-shot migration/seed job, the web app,
 and the background worker (crawler + scheduler + notifications).
 
-### Local development
+### Without Docker
 
-Requires Node 20.11+, PostgreSQL 14+ and (optionally) Redis.
+Docker is a convenience, not a requirement. All you need is **Node 20.11+** and
+**PostgreSQL 14+**. Redis is optional (see below).
 
 ```bash
+# 1. Install PostgreSQL and create a database
+#    macOS:          brew install postgresql@16 && brew services start postgresql@16
+#    Debian/Ubuntu:  sudo apt install postgresql && sudo service postgresql start
+createdb bbm
+
+# 2. Configure
 npm install
-cp .env.example .env          # point DATABASE_URL at your database
+cp .env.example .env
+#    Set DATABASE_URL to your database, e.g.
+#    DATABASE_URL=postgres://youruser@localhost:5432/bbm
+#    Also set AUTH_SECRET and CRAWLER_USER_AGENT.
 
-npm run db:migrate            # create the schema
-npm run db:seed               # load the starter seed-domain list
+# 3. Create the schema and load the starter seed list
+npm run db:migrate
+npm run db:seed
 
+# 4. Run it
 npm run dev                   # dashboard on http://localhost:3000
-npm run worker                # background crawler + scheduler (separate terminal)
+npm run worker                # crawler + scheduler, in a second terminal
 ```
+
+For a production build without Docker, use `npm run build && npm start`
+alongside `npm run worker`, and keep both alive with your process manager of
+choice (systemd, pm2, supervisor).
+
+#### Is Redis required?
+
+**No.** Redis only backs the job queue, which provides *scheduling* — the
+6-hourly discovery pass, nightly re-verification and the daily digest.
+
+Without Redis:
+
+- the dashboard, API, search, filters and every page work normally;
+- `/api/health` reports `"queue": false` and the admin panel shows the queue as
+  unavailable;
+- admin actions and API calls that would normally be queued run **inline**
+  instead (pass `inline: true`, or just let it fall back automatically);
+- the CLI still works: `npm run discover` and `npm run verify`.
+
+So a Redis-free setup is entirely usable — you simply drive discovery yourself
+from the CLI or the admin panel, or from cron:
+
+```cron
+0 */6 * * *  cd /path/to/bugbounty-monitor && npm run discover -- --limit 50
+30 3 * * *   cd /path/to/bugbounty-monitor && npm run verify -- --limit 50
+```
+
+Add Redis (`brew install redis` / `sudo apt install redis-server`) when you want
+the built-in scheduler and background processing.
 
 ### Get data in
 
