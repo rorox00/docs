@@ -1,4 +1,66 @@
-# Bubble Sort Battle
+# Algorithm Games
+
+Two games for the activity - pick either one, or show both.
+
+| Game | Algorithm | Style |
+|------|-----------|-------|
+| `treasure_hunt_game.py` | Binary Search | Graphical, click the chests (recommended) |
+| `bubble_sort_game.py` | Bubble Sort | Text based, type S / K in the terminal |
+
+---
+
+# 1. Treasure Hunt (Binary Search) - graphical game
+
+A row of locked treasure chests is buried in **increasing order** and one of
+them holds the diamond. You may open only a few chests before the tide comes
+in, so opening them one by one never works. Every chest you open answers
+**TOO LOW** or **TOO HIGH**, and that answer throws away half of the island
+in a single move - which is exactly Binary Search.
+
+### How to run
+
+```bash
+python treasure_hunt_game.py
+```
+
+It uses **tkinter**, which is already included with Python on Windows, so
+nothing has to be installed.
+
+### How to play
+
+- Chests still worth searching sit inside a **glowing blue band**
+- Click the **middle chest** of that band - the chest lights up when you point at it
+- Blue chest = its number was too low, red chest = too high
+- Chests the algorithm has ruled out turn dark and show an `x`
+- Find the diamond before your moves run out
+
+### Scoring
+
+| Action | Score |
+|--------|-------|
+| Opening the exact middle chest | +10 (PERFECT SPLIT) |
+| Level completed | +100 |
+| Every unused move | +20 |
+| Whole level played correctly | +50 |
+| Hint | -25 |
+
+### Levels
+
+| Level | Chests | Moves allowed |
+|-------|--------|---------------|
+| 1 | 8 | 4 |
+| 2 | 16 | 5 |
+| 3 | 24 | 6 |
+| 4 | 32 | 6 |
+
+With 32 chests, Binary Search needs at most 5 moves - so the move limit can
+only be met by playing the algorithm properly. Clearing all four levels wins
+the game; running out of moves shows GAME OVER and reveals the diamond.
+Both screens offer **Play Again**.
+
+---
+
+# 2. Bubble Sort Battle (text version)
 
 An algorithm-based educational game written in Python for
 **Activity I – Develop an Algorithm-Based Educational Game**
