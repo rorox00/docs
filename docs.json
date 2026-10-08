@@ -52,6 +52,19 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "Pentesting",
+        "groups": [
+          {
+            "group": "Black-Box Testing",
+            "pages": [
+              "pentesting/methodology",
+              "pentesting/engagement",
+              "pentesting/report-template"
+            ]
+          }
+        ]
       }
     ],
     "global": {
